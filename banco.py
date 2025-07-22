@@ -4,7 +4,7 @@ limite_diario = 3
 saques_realizados = 0
 limite = 1000
 trasacao = []
-print("Bem vindo ao Bankdaas")
+print("=====Bem vindo ao Bankdaas=====")
 def mostrar_o_saldo():
     print(f"O saldo da sua conta é:  R${saldo:.2f}")
     for t in trasacao[-5:]:

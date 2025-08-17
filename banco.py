@@ -4,8 +4,8 @@ limite_diario = 3
 saques_realizados = 0
 limite = 1000
 trasacao = []
-print("=====Bem vindo ao Bankdaas=====")
-def mostrar_o_saldo():
+print("=====Bem vindo ao Bankdiodaas=====")
+def mostrar_o_saldo(trasacao):
     print(f"O saldo da sua conta é:  R${saldo:.2f}")
     for t in trasacao[-5:]:
         print(f"Data:{t['data']} - Tipo: {t['tipo']} - Valor: R${t['valor']:.2f}")
@@ -18,7 +18,7 @@ def depositar():
     trasacao.append({
         "tipo":"Depósito",
         "valor":deposito,
-        "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")  
     })
 def sacar():
     global saldo, saques_realizados

@@ -94,7 +94,7 @@ A aplicação roda no terminal, agora com suporte a **clientes, múltiplas conta
 
 1. Clone este repositório:
    ```bash
-   git clone https://github.com/seu-usuario/sistema-bancario.git
+   git clone https://github.com/gsaad2305/Sistema-bancario.git
    cd sistema-bancario
    ```
 

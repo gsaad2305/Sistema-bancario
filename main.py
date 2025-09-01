@@ -3,10 +3,15 @@ import os
 from cliente import PessoaFisica
 from conta import ContaCorrente
 from transacao import Deposito,Saque
+import sqlite3
+from pathlib import Path
 
+#Limpa a tela a cada operação
 def limpar_tela():
     os.system('cls' if os.name == 'nt' else 'clear')
+    
 def menu():
+    #Menu de opções
     menu = """"\n
     ========== Menu ==========
     [d] Depositar
@@ -124,73 +129,87 @@ def listar_contas(contas):
     for conta in contas:
         print("=" * 100)
         print(textwrap.dedent(str(conta)))
+        
+        
+#Conecta ao banco de dados
+def conectar_banco():
+    #Informando onde o arquivo de banco de dados ficará localizado
+    ROOT_PATH = Path(__file__).parent
+    caminho_banco = ROOT_PATH / 'banco.db'
+    conexao = sqlite3.connect(caminho_banco)
+    cursor = conexao.cursor()
+    
+    #Cria a tabela de clientes com nome, data_nascimento, endereco
+    cursor.execute('''
+                   CREATE TABLE IF NOT EXISTS clientes (
+                       cpf TEXT PRIMARY KEY, 
+                       nome TEXT NOT NULL, 
+                       data_nascimento TEXT,
+                       endereco TEXT
+                   );
+                   ''')
+    #Cria a tabela de contas com o  numero da conta, cpf do cliente e o saldo na conta.
+    cursor.execute('''
+                   CREATE TABLE IF NOT  EXISTS contas(
+                       numero INTEGER PRIMARY KEY,
+                       cpf_cliente TEXT NOT NULL,
+                       saldo REAL NOT NULL,
+                       FOREIGN KEY (cpf_cliente) REFERENCES clientes(cpf)
+                       );
+                       ''')
+    conexao.commit()
+    return conexao,cursor
+
 
 def salvar_dados(clientes, contas):
-    # Salva os clientes
-    with open("clientes.txt", "w") as arquivo_clientes:
-        for cliente in clientes:
-            linha = f"{cliente.cpf};{cliente.nome};{cliente.data_nascimento};{cliente.endereco}\n"
-            arquivo_clientes.write(linha)
-    print("\n✅ Dados de clientes salvos com sucesso!")
+    #Salva os dados no banco de dados ao final
+    conexao,cursor = conectar_banco()
+    cursor.execute("DELETE FROM clientes")
+    cursor.execute("DELETE FROM contas")
     
-    # Salva as contas
-    with open("contas.txt", "w") as arquivo_contas:
-        for conta in contas:
-            linha = f"{conta.numero};{conta.cliente.cpf};{conta.saldo}\n"
-            arquivo_contas.write(linha)
-    print("✅ Dados de contas salvos com sucesso!")
-     
-# main.py
+    for cliente in clientes:
+        cursor.execute("INSERT INTO clientes (cpf,nome,data_nascimento, endereco) VALUES (?,?,?,?);", (cliente.cpf, cliente.nome, cliente.data_nascimento, cliente.endereco))
+        
+    for conta in contas:
+        cursor.execute("INSERT INTO contas (numero, cpf_cliente, saldo) VALUES (?,?,?);", (conta.numero, conta.cliente.cpf, conta.saldo))
+        
+    conexao.commit()
+    conexao.close()
+    print("Dados salvos com sucesso.")
 
 def carregar_dados():
+    #Carrega os dados do banco de dados, caso esteja registrado no banco de dados
     clientes = []
     contas = []
-
-    # Carrega os clientes
-    try:
-        with open("clientes.txt", "r") as arquivo_clientes:
-            for linha in arquivo_clientes:
-                # Ignora linhas em branco
-                if not linha.strip():
-                    continue
-
-                cpf, nome, data_nascimento, endereco = linha.strip().split(';')
-                cliente = PessoaFisica(nome=nome, data_nascimento=data_nascimento, cpf=cpf, endereco=endereco)
-                clientes.append(cliente)
-        print("✅ Clientes carregados com sucesso!")
-    except FileNotFoundError:
-        print("❌ Arquivo de clientes não encontrado. Iniciando com dados vazios.")
     
-    # Carrega as contas
     try:
-        with open("contas.txt", "r") as arquivo_contas:
-            for linha in arquivo_contas:
-                # Corrigido: Verifica se a linha não está vazia e se tem 3 partes
-                partes = linha.strip().split(';')
-                if len(partes) != 3:
-                    print(f"❌ Erro de formato na linha: '{linha.strip()}' - ignorando.")
-                    continue
-                
-                numero_str, cpf_cliente, saldo_str = partes
-                
-                numero = int(numero_str)
-                saldo = float(saldo_str)
-                
-                # Encontra o cliente correspondente para vincular a conta
-                cliente = filtrar_conta(cpf_cliente, clientes)
-                if cliente:
-                    conta = ContaCorrente.nova_conta(cliente=cliente, numero=numero)
-                    conta._saldo = saldo # Acessa a propriedade privada para manter o saldo
-                    contas.append(conta)
-                    cliente.adicionar_conta(conta)
-        print("✅ Contas carregadas com sucesso!")
-    except FileNotFoundError:
-        print("❌ Arquivo de contas não encontrado. Iniciando com dados vazios.")
-
+        conexao, cursor = conectar_banco()
+    except sqlite3.OperationalError:
+        print("❌ Não foi possivel conectar ao banco de dados")
+        return clientes,contas
+    cursor.execute("SELECT cpf,nome,data_nascimento, endereco FROM clientes;")
+    clientes_salvos = cursor.fetchall()
+    
+    for cpf,nome,data_nascimento, endereco in clientes_salvos:
+        cliente = PessoaFisica(nome=nome, data_nascimento=data_nascimento, cpf=cpf, endereco=endereco)
+        clientes.append(cliente)
+        
+    cursor.execute("SELECT numero, cpf_cliente, saldo FROM contas;")
+    contas_salvas = cursor.fetchall()
+    
+    for numero, cpf_cliente, saldo in contas_salvas:
+        cliente = filtrar_conta(cpf_cliente, clientes)
+        if cliente:
+            conta = ContaCorrente(cliente=cliente, numero=numero)
+            conta._saldo = saldo
+            contas.append(conta)
+            cliente.adicionar_conta(conta)
+    conexao.close()
+    print("✅ Dados carregados com sucesso.")
     return clientes, contas
 
 def main():
-    clientes, contas = carregar_dados()
+    clientes,contas = carregar_dados()
     while True:
         opcao = menu()
         limpar_tela()
@@ -218,5 +237,5 @@ def main():
         
         else:
             print("\n@@@ Opção inválida, por favor selecione novamente a opção do menu. @@@")
-
+        input("\n--- Pressione ENTER para continuar... ---")
 main()
